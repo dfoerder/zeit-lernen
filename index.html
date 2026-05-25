@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zeit lernen</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a5276">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icon-192.png">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>Zeit lernen</h1>
+    </header>
+
+    <nav id="mode-tabs">
+      <button class="tab active" data-mode="24h">24h-Format</button>
+      <button class="tab" data-mode="tageszeit">Tageszeit</button>
+      <button class="tab" data-mode="umgangssprache">Umgangssprache</button>
+    </nav>
+
+    <main>
+      <div id="clock-container">
+        <svg id="clock" viewBox="0 0 200 200" width="180" height="180"></svg>
+      </div>
+
+      <div id="prompt"></div>
+
+      <div id="input-area">
+        <input type="text" id="answer" autocomplete="off" autocapitalize="off" placeholder="Antwort eingeben...">
+        <button id="check-btn">Prüfen</button>
+      </div>
+
+      <div id="feedback" class="hidden"></div>
+
+      <div id="valid-answers" class="hidden"></div>
+
+      <div id="score-bar">
+        <span id="score">0 / 0</span>
+        <span id="streak"></span>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
