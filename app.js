@@ -3,7 +3,7 @@ const numberWords = [
   'sieben', 'acht', 'neun', 'zehn', 'elf', 'zwölf'
 ];
 
-const ITEM_HEIGHT = 50;
+const ITEM_HEIGHT = 38;
 
 const examplesData = {
   '24h': {
@@ -62,7 +62,6 @@ const pickerConfigs = {
   umgangssprache: {
     wheels: [
       { items: [
-        { label: '― Uhr', value: '_uhr' },
         { label: 'fünf nach', value: 'fünf nach' },
         { label: 'zehn nach', value: 'zehn nach' },
         { label: 'viertel nach', value: 'viertel nach' },
@@ -78,7 +77,6 @@ const pickerConfigs = {
       { items: numberWords.slice(1).map(w => ({ label: w, value: w })) }
     ],
     getAnswer(values) {
-      if (values[0] === '_uhr') return `${values[1]} uhr`;
       return `${values[0]} ${values[1]}`;
     }
   }
@@ -439,7 +437,10 @@ function showFeedback(isCorrect) {
 
 function nextRound() {
   state.questionCount++;
-  const { hour, minute } = randomTime();
+  let { hour, minute } = randomTime();
+  if (state.mode === 'umgangssprache' && !state.useTyping && minute === 0) {
+    minute = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55][Math.floor(Math.random() * 11)];
+  }
   state.hour = hour;
   state.minute = minute;
   state.answered = false;
