@@ -24,24 +24,34 @@
     </nav>
 
     <main>
-      <div id="clock-container">
-        <svg id="clock" viewBox="0 0 200 200" width="180" height="180"></svg>
+      <div id="examples" class="hidden">
+        <h2 id="examples-title"></h2>
+        <p id="examples-desc"></p>
+        <table id="examples-table"></table>
+        <button id="start-btn">Training starten</button>
       </div>
 
-      <div id="prompt"></div>
+      <div id="training" class="hidden">
+        <div id="clock-container">
+          <svg id="clock" viewBox="0 0 200 200" width="180" height="180"></svg>
+        </div>
 
-      <div id="input-area">
-        <input type="text" id="answer" autocomplete="off" autocapitalize="off" placeholder="Antwort eingeben...">
-        <button id="check-btn">Prüfen</button>
-      </div>
+        <div id="prompt"></div>
 
-      <div id="feedback" class="hidden"></div>
+        <div id="input-area">
+          <input type="text" id="answer" autocomplete="off" autocapitalize="off" placeholder="Antwort eingeben...">
+          <button id="check-btn">Prüfen</button>
+        </div>
 
-      <div id="valid-answers" class="hidden"></div>
+        <div id="feedback" class="hidden"></div>
 
-      <div id="score-bar">
-        <span id="score">0 / 0</span>
-        <span id="streak"></span>
+        <div id="valid-answers" class="hidden"></div>
+
+        <div id="score-bar">
+          <span id="score">0 / 0</span>
+          <span id="streak"></span>
+          <button id="examples-btn">Beispiele</button>
+        </div>
       </div>
     </main>
   </div>

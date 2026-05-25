@@ -3,6 +3,45 @@ const numberWords = [
   'sieben', 'acht', 'neun', 'zehn', 'elf', 'zwölf'
 ];
 
+const examplesData = {
+  '24h': {
+    title: '24-Stunden-Format',
+    desc: 'Wandle die angezeigte AM/PM-Zeit in das 24-Stunden-Format um.',
+    rows: [
+      ['3:00 AM', '3:00'],
+      ['8:30 AM', '8:30'],
+      ['12:00 PM', '12:00'],
+      ['3:00 PM', '15:00'],
+      ['9:45 PM', '21:45'],
+      ['12:00 AM', '0:00'],
+    ]
+  },
+  tageszeit: {
+    title: 'Tageszeit bestimmen',
+    desc: 'Ordne der angezeigten Uhrzeit die passende Tageszeit zu.',
+    rows: [
+      ['2:00', 'nachts'],
+      ['7:00', 'morgens'],
+      ['11:00', 'vormittags'],
+      ['12:30', 'mittags'],
+      ['16:00', 'nachmittags'],
+      ['20:00', 'abends'],
+    ]
+  },
+  umgangssprache: {
+    title: 'Umgangssprache',
+    desc: 'Drücke die angezeigte Zeit so aus, wie man sie im Alltag sagen würde.',
+    rows: [
+      ['3:00 PM', 'drei Uhr'],
+      ['3:15 PM', 'viertel nach drei'],
+      ['3:30 PM', 'halb vier'],
+      ['3:45 PM', 'viertel vor vier'],
+      ['3:10 PM', 'zehn nach drei'],
+      ['3:50 PM', 'zehn vor vier'],
+    ]
+  }
+};
+
 const state = {
   mode: '24h',
   hour: 0,
@@ -10,7 +49,8 @@ const state = {
   correct: 0,
   total: 0,
   streak: 0,
-  answered: false
+  answered: false,
+  showingExamples: true
 };
 
 function loadScore() {
@@ -310,6 +350,28 @@ function handleCheck() {
   input.blur();
 }
 
+function showExamples() {
+  const data = examplesData[state.mode];
+  document.getElementById('examples-title').textContent = data.title;
+  document.getElementById('examples-desc').textContent = data.desc;
+
+  const table = document.getElementById('examples-table');
+  table.innerHTML = data.rows.map(([from, to]) =>
+    `<tr><td>${from}</td><td class="arrow">&rarr;</td><td>${to}</td></tr>`
+  ).join('');
+
+  state.showingExamples = true;
+  document.getElementById('examples').classList.remove('hidden');
+  document.getElementById('training').classList.add('hidden');
+}
+
+function startTraining() {
+  state.showingExamples = false;
+  document.getElementById('examples').classList.add('hidden');
+  document.getElementById('training').classList.remove('hidden');
+  nextRound();
+}
+
 function setMode(mode) {
   state.mode = mode;
   document.querySelectorAll('.tab').forEach(t => {
@@ -321,10 +383,12 @@ function setMode(mode) {
   else if (mode === 'tageszeit') input.placeholder = 'z.B. nachmittags';
   else input.placeholder = 'z.B. halb fünf';
 
-  nextRound();
+  showExamples();
 }
 
 document.getElementById('check-btn').addEventListener('click', handleCheck);
+document.getElementById('start-btn').addEventListener('click', startTraining);
+document.getElementById('examples-btn').addEventListener('click', showExamples);
 
 document.getElementById('answer').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') handleCheck();
@@ -338,7 +402,7 @@ document.getElementById('mode-tabs').addEventListener('click', (e) => {
 
 loadScore();
 updateScore();
-nextRound();
+showExamples();
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js');
