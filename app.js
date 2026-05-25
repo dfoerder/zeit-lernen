@@ -3,6 +3,8 @@ const numberWords = [
   'sieben', 'acht', 'neun', 'zehn', 'elf', 'zwölf'
 ];
 
+const ITEM_HEIGHT = 50;
+
 const examplesData = {
   '24h': {
     title: '24-Stunden-Format',
@@ -42,6 +44,46 @@ const examplesData = {
   }
 };
 
+const pickerConfigs = {
+  '24h': {
+    wheels: [
+      { items: Array.from({length: 24}, (_, i) => ({ label: String(i), value: String(i) })) },
+      { separator: ':' },
+      { items: [0,5,10,15,20,25,30,35,40,45,50,55].map(m => ({ label: String(m).padStart(2,'0'), value: String(m).padStart(2,'0') })) }
+    ],
+    getAnswer(values) { return `${values[0]}:${values[1]}`; }
+  },
+  tageszeit: {
+    wheels: [
+      { items: ['nachts','morgens','vormittags','mittags','nachmittags','abends'].map(t => ({ label: t, value: t })) }
+    ],
+    getAnswer(values) { return values[0]; }
+  },
+  umgangssprache: {
+    wheels: [
+      { items: [
+        { label: '― Uhr', value: '_uhr' },
+        { label: 'fünf nach', value: 'fünf nach' },
+        { label: 'zehn nach', value: 'zehn nach' },
+        { label: 'viertel nach', value: 'viertel nach' },
+        { label: 'zwanzig nach', value: 'zwanzig nach' },
+        { label: 'fünf vor halb', value: 'fünf vor halb' },
+        { label: 'halb', value: 'halb' },
+        { label: 'fünf nach halb', value: 'fünf nach halb' },
+        { label: 'zwanzig vor', value: 'zwanzig vor' },
+        { label: 'viertel vor', value: 'viertel vor' },
+        { label: 'zehn vor', value: 'zehn vor' },
+        { label: 'fünf vor', value: 'fünf vor' },
+      ]},
+      { items: numberWords.slice(1).map(w => ({ label: w, value: w })) }
+    ],
+    getAnswer(values) {
+      if (values[0] === '_uhr') return `${values[1]} uhr`;
+      return `${values[0]} ${values[1]}`;
+    }
+  }
+};
+
 const state = {
   mode: '24h',
   hour: 0,
@@ -50,7 +92,10 @@ const state = {
   total: 0,
   streak: 0,
   answered: false,
-  showingExamples: true
+  showingExamples: true,
+  questionCount: 0,
+  useTyping: false,
+  wheels: []
 };
 
 function loadScore() {
@@ -215,6 +260,102 @@ function checkAnswer(input) {
   return valid.includes(clean);
 }
 
+// --- Picker ---
+
+function createWheel(items) {
+  const container = document.createElement('div');
+  container.className = 'picker-wheel';
+
+  const topPad = document.createElement('div');
+  topPad.className = 'picker-pad';
+  container.appendChild(topPad);
+
+  items.forEach((item, i) => {
+    const el = document.createElement('div');
+    el.className = 'picker-item';
+    el.textContent = item.label;
+    el.dataset.index = i;
+    container.appendChild(el);
+  });
+
+  const bottomPad = document.createElement('div');
+  bottomPad.className = 'picker-pad';
+  container.appendChild(bottomPad);
+
+  const highlight = document.createElement('div');
+  highlight.className = 'picker-highlight';
+  container.appendChild(highlight);
+
+  function getSelectedIndex() {
+    return Math.round(container.scrollTop / ITEM_HEIGHT);
+  }
+
+  function updateSelected() {
+    const idx = getSelectedIndex();
+    container.querySelectorAll('.picker-item').forEach((el, i) => {
+      el.classList.toggle('selected', i === idx);
+    });
+  }
+
+  container.addEventListener('scroll', updateSelected, { passive: true });
+
+  const wheel = {
+    element: container,
+    items,
+    getValue() {
+      const idx = Math.min(getSelectedIndex(), items.length - 1);
+      return items[Math.max(0, idx)].value;
+    },
+    scrollTo(idx) {
+      container.scrollTop = idx * ITEM_HEIGHT;
+      updateSelected();
+    }
+  };
+
+  return wheel;
+}
+
+function buildPicker() {
+  const area = document.getElementById('picker-area');
+  area.innerHTML = '';
+  state.wheels = [];
+
+  const config = pickerConfigs[state.mode];
+  const picker = document.createElement('div');
+  picker.className = 'picker';
+
+  config.wheels.forEach(wc => {
+    if (wc.separator) {
+      const sep = document.createElement('div');
+      sep.className = 'picker-separator';
+      sep.textContent = wc.separator;
+      picker.appendChild(sep);
+      return;
+    }
+
+    const wheel = createWheel(wc.items);
+    picker.appendChild(wheel.element);
+    state.wheels.push(wheel);
+  });
+
+  area.appendChild(picker);
+
+  requestAnimationFrame(() => {
+    state.wheels.forEach(w => {
+      const idx = Math.floor(Math.random() * w.items.length);
+      w.scrollTo(idx);
+    });
+  });
+}
+
+function getPickerAnswer() {
+  const config = pickerConfigs[state.mode];
+  const values = state.wheels.map(w => w.getValue());
+  return config.getAnswer(values);
+}
+
+// --- Clock ---
+
 function drawClock(h, m) {
   const svg = document.getElementById('clock');
   const cx = 100, cy = 100, r = 88;
@@ -254,6 +395,8 @@ function drawClock(h, m) {
 
   svg.innerHTML = html;
 }
+
+// --- UI ---
 
 function updatePrompt() {
   const { hour, minute, mode } = state;
@@ -295,29 +438,42 @@ function showFeedback(isCorrect) {
 }
 
 function nextRound() {
+  state.questionCount++;
   const { hour, minute } = randomTime();
   state.hour = hour;
   state.minute = minute;
   state.answered = false;
+  state.useTyping = state.questionCount % 20 === 0;
 
   drawClock(hour, minute);
   updatePrompt();
 
-  const fb = document.getElementById('feedback');
-  const va = document.getElementById('valid-answers');
-  fb.classList.add('hidden');
-  va.classList.add('hidden');
+  document.getElementById('feedback').classList.add('hidden');
+  document.getElementById('valid-answers').classList.add('hidden');
+  document.getElementById('check-btn').textContent = 'Prüfen';
+  document.getElementById('skip-btn').classList.remove('hidden');
 
-  const input = document.getElementById('answer');
-  input.value = '';
-  input.focus();
+  if (state.useTyping) {
+    document.getElementById('picker-area').classList.add('hidden');
+    document.getElementById('input-area').classList.remove('hidden');
+    const input = document.getElementById('answer');
+    input.value = '';
+    input.focus();
+  } else {
+    document.getElementById('input-area').classList.add('hidden');
+    document.getElementById('picker-area').classList.remove('hidden');
+    buildPicker();
+  }
+}
 
-  const btn = document.getElementById('check-btn');
-  btn.textContent = 'Prüfen';
+function getCurrentAnswer() {
+  if (state.useTyping) {
+    return document.getElementById('answer').value.trim();
+  }
+  return getPickerAnswer();
 }
 
 function handleCheck() {
-  const input = document.getElementById('answer');
   const btn = document.getElementById('check-btn');
 
   if (state.answered) {
@@ -325,8 +481,9 @@ function handleCheck() {
     return;
   }
 
-  const value = input.value.trim();
-  if (!value) {
+  const value = getCurrentAnswer();
+  if (state.useTyping && !value) {
+    const input = document.getElementById('answer');
     input.classList.add('shake');
     setTimeout(() => input.classList.remove('shake'), 400);
     return;
@@ -347,8 +504,16 @@ function handleCheck() {
   saveScore();
 
   btn.textContent = 'Weiter';
-  input.blur();
+  document.getElementById('skip-btn').classList.add('hidden');
+  if (state.useTyping) document.getElementById('answer').blur();
 }
+
+function handleSkip() {
+  if (state.answered) return;
+  nextRound();
+}
+
+// --- Examples & Modes ---
 
 function showExamples() {
   const data = examplesData[state.mode];
@@ -374,19 +539,23 @@ function startTraining() {
 
 function setMode(mode) {
   state.mode = mode;
+  state.questionCount = 0;
   document.querySelectorAll('.tab').forEach(t => {
     t.classList.toggle('active', t.dataset.mode === mode);
   });
 
   const input = document.getElementById('answer');
-  if (mode === '24h') input.placeholder = 'z.B. 16:30';
-  else if (mode === 'tageszeit') input.placeholder = 'z.B. nachmittags';
-  else input.placeholder = 'z.B. halb fünf';
+  if (mode === '24h') input.placeholder = '16:30';
+  else if (mode === 'tageszeit') input.placeholder = 'nachmittags';
+  else input.placeholder = 'halb fünf';
 
   showExamples();
 }
 
+// --- Events ---
+
 document.getElementById('check-btn').addEventListener('click', handleCheck);
+document.getElementById('skip-btn').addEventListener('click', handleSkip);
 document.getElementById('start-btn').addEventListener('click', startTraining);
 document.getElementById('examples-btn').addEventListener('click', showExamples);
 
@@ -402,7 +571,7 @@ document.getElementById('mode-tabs').addEventListener('click', (e) => {
 
 loadScore();
 updateScore();
-showExamples();
+setMode('24h');
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js');

@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Zeit lernen</title>
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
@@ -38,9 +38,15 @@
 
         <div id="prompt"></div>
 
-        <div id="input-area">
-          <input type="text" id="answer" autocomplete="off" autocapitalize="off" placeholder="Antwort eingeben...">
+        <div id="picker-area" class="hidden"></div>
+
+        <div id="input-area" class="hidden">
+          <input type="text" id="answer" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Antwort eingeben...">
+        </div>
+
+        <div id="action-bar">
           <button id="check-btn">Prüfen</button>
+          <button id="skip-btn">Überspringen</button>
         </div>
 
         <div id="feedback" class="hidden"></div>
