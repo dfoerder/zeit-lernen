@@ -8,7 +8,7 @@ const ITEM_HEIGHT = 38;
 const examplesData = {
   '24h': {
     title: '24-Stunden-Format',
-    desc: 'Wandle die angezeigte AM/PM-Zeit in das 24-Stunden-Format um.',
+    desc: 'Wandle zwischen AM/PM- und 24-Stunden-Format um – in beide Richtungen.',
     rows: [
       ['3:00 AM', '3:00'],
       ['8:30 AM', '8:30'],
@@ -32,7 +32,7 @@ const examplesData = {
   },
   umgangssprache: {
     title: 'Umgangssprache',
-    desc: 'Drücke die angezeigte Zeit so aus, wie man sie im Alltag sagen würde.',
+    desc: 'Wandle zwischen Uhrzeit und Alltagssprache um – in beide Richtungen.',
     rows: [
       ['3:00 PM', 'drei Uhr'],
       ['3:15 PM', 'viertel nach drei'],
@@ -82,6 +82,30 @@ const pickerConfigs = {
   }
 };
 
+const minuteItems = [0,5,10,15,20,25,30,35,40,45,50,55].map(m => ({
+  label: String(m).padStart(2,'0'), value: String(m).padStart(2,'0')
+}));
+
+const reversePickerConfigs = {
+  '24h': {
+    wheels: [
+      { items: Array.from({length: 12}, (_, i) => ({ label: String(i+1), value: String(i+1) })) },
+      { separator: ':' },
+      { items: minuteItems },
+      { items: [{ label: 'AM', value: 'AM' }, { label: 'PM', value: 'PM' }] }
+    ],
+    getAnswer(values) { return `${values[0]}:${values[1]} ${values[2]}`; }
+  },
+  umgangssprache: {
+    wheels: [
+      { items: Array.from({length: 12}, (_, i) => ({ label: String(i+1), value: String(i+1) })) },
+      { separator: ':' },
+      { items: minuteItems }
+    ],
+    getAnswer(values) { return `${values[0]}:${values[1]}`; }
+  }
+};
+
 const state = {
   mode: '24h',
   hour: 0,
@@ -93,6 +117,7 @@ const state = {
   showingExamples: true,
   questionCount: 0,
   useTyping: false,
+  reverse: false,
   wheels: []
 };
 
@@ -223,21 +248,58 @@ function getTageszeitAnswers(h) {
   return answers;
 }
 
+function getAMPMAnswers(h, m) {
+  const answers = [];
+  const period = h >= 12 ? 'pm' : 'am';
+  const h12 = h % 12 || 12;
+  const mStr = m.toString().padStart(2, '0');
+
+  answers.push(`${h12}:${mStr} ${period}`);
+  answers.push(`${h12}.${mStr} ${period}`);
+  if (m === 0) {
+    answers.push(`${h12} ${period}`);
+    answers.push(`${h12}:00 ${period}`);
+  }
+  return answers;
+}
+
+function get12hAnswers(h, m) {
+  const answers = [];
+  const h12 = h % 12 || 12;
+  const mStr = m.toString().padStart(2, '0');
+
+  answers.push(`${h12}:${mStr}`);
+  answers.push(`${h12}.${mStr}`);
+  if (m === 0) {
+    answers.push(`${h12}:00`);
+    answers.push(`${h12}`);
+  }
+  return answers;
+}
+
 function getValidAnswers() {
-  const { hour, minute, mode } = state;
-  if (mode === '24h') return get24hAnswers(hour, minute);
+  const { hour, minute, mode, reverse } = state;
+  if (mode === '24h') return reverse ? getAMPMAnswers(hour, minute) : get24hAnswers(hour, minute);
   if (mode === 'tageszeit') return getTageszeitAnswers(hour);
-  return getColloquialAnswers(hour, minute);
+  return reverse ? get12hAnswers(hour, minute) : getColloquialAnswers(hour, minute);
 }
 
 function getDisplayAnswers() {
-  const { hour, minute, mode } = state;
+  const { hour, minute, mode, reverse } = state;
   if (mode === '24h') {
+    if (reverse) {
+      return [formatAMPM(hour, minute)];
+    }
     const mStr = minute.toString().padStart(2, '0');
     return [`${hour}:${mStr}`, `${hour} Uhr ${mStr}`];
   }
   if (mode === 'tageszeit') {
     return [getTageszeit(hour)];
+  }
+  if (reverse) {
+    const h12 = hour % 12 || 12;
+    const mStr = minute.toString().padStart(2, '0');
+    return [`${h12}:${mStr}`];
   }
   const answers = getColloquialAnswers(hour, minute);
   const unique = [...new Set(answers.filter((_, i) => i % 2 === 0))];
@@ -313,12 +375,19 @@ function createWheel(items) {
   return wheel;
 }
 
+function getActivePickerConfig() {
+  if (state.reverse && reversePickerConfigs[state.mode]) {
+    return reversePickerConfigs[state.mode];
+  }
+  return pickerConfigs[state.mode];
+}
+
 function buildPicker() {
   const area = document.getElementById('picker-area');
   area.innerHTML = '';
   state.wheels = [];
 
-  const config = pickerConfigs[state.mode];
+  const config = getActivePickerConfig();
   const picker = document.createElement('div');
   picker.className = 'picker';
 
@@ -347,7 +416,7 @@ function buildPicker() {
 }
 
 function getPickerAnswer() {
-  const config = pickerConfigs[state.mode];
+  const config = getActivePickerConfig();
   const values = state.wheels.map(w => w.getValue());
   return config.getAnswer(values);
 }
@@ -397,15 +466,21 @@ function drawClock(h, m) {
 // --- UI ---
 
 function updatePrompt() {
-  const { hour, minute, mode } = state;
+  const { hour, minute, mode, reverse } = state;
   const prompt = document.getElementById('prompt');
 
   if (mode === '24h') {
-    prompt.textContent = formatAMPM(hour, minute);
+    prompt.textContent = reverse ? format24h(hour, minute) : formatAMPM(hour, minute);
   } else if (mode === 'tageszeit') {
     prompt.textContent = format24h(hour, minute);
   } else {
-    prompt.textContent = formatAMPM(hour, minute);
+    if (reverse) {
+      const answers = getColloquialAnswers(hour, minute);
+      const text = answers.length > 0 ? answers[0] : '';
+      prompt.textContent = text.charAt(0).toUpperCase() + text.slice(1);
+    } else {
+      prompt.textContent = formatAMPM(hour, minute);
+    }
   }
 }
 
@@ -437,17 +512,37 @@ function showFeedback(isCorrect) {
 
 function nextRound() {
   state.questionCount++;
+  state.reverse = (state.mode !== 'tageszeit') && Math.random() < 0.5;
+  state.useTyping = state.questionCount % 20 === 0;
+
   let { hour, minute } = randomTime();
-  if (state.mode === 'umgangssprache' && !state.useTyping && minute === 0) {
+  if (state.mode === 'umgangssprache' && !state.useTyping && !state.reverse && minute === 0) {
     minute = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55][Math.floor(Math.random() * 11)];
   }
   state.hour = hour;
   state.minute = minute;
   state.answered = false;
-  state.useTyping = state.questionCount % 20 === 0;
 
-  drawClock(hour, minute);
+  // Uhr bei Umgangssprache-Reverse verstecken (verrät die Antwort)
+  const clockEl = document.getElementById('clock-container');
+  if (state.mode === 'umgangssprache' && state.reverse) {
+    clockEl.classList.add('hidden');
+  } else {
+    clockEl.classList.remove('hidden');
+    drawClock(hour, minute);
+  }
+
   updatePrompt();
+
+  // Placeholder je nach Richtung anpassen
+  const input = document.getElementById('answer');
+  if (state.reverse) {
+    input.placeholder = state.mode === '24h' ? '3:00 PM' : '3:30';
+  } else {
+    if (state.mode === '24h') input.placeholder = '16:30';
+    else if (state.mode === 'tageszeit') input.placeholder = 'nachmittags';
+    else input.placeholder = 'halb fünf';
+  }
 
   document.getElementById('feedback').classList.add('hidden');
   document.getElementById('valid-answers').classList.add('hidden');
@@ -457,7 +552,6 @@ function nextRound() {
   if (state.useTyping) {
     document.getElementById('picker-area').classList.add('hidden');
     document.getElementById('input-area').classList.remove('hidden');
-    const input = document.getElementById('answer');
     input.value = '';
     input.focus();
   } else {
