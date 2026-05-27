@@ -8,14 +8,14 @@ const ITEM_HEIGHT = 38;
 const examplesData = {
   '24h': {
     title: '24-Stunden-Format',
-    desc: 'Wandle zwischen AM/PM- und 24-Stunden-Format um – in beide Richtungen.',
+    desc: 'Wandle zwischen 12-Stunden- und 24-Stunden-Format um – in beide Richtungen.',
     rows: [
-      ['3:00 AM', '3:00'],
-      ['8:30 AM', '8:30'],
-      ['12:00 PM', '12:00'],
-      ['3:00 PM', '15:00'],
-      ['9:45 PM', '21:45'],
-      ['12:00 AM', '0:00'],
+      ['3:00 morgens', '3:00'],
+      ['10:30 vormittags', '10:30'],
+      ['12:00 mittags', '12:00'],
+      ['3:00 nachmittags', '15:00'],
+      ['9:45 abends', '21:45'],
+      ['12:00 nachts', '0:00'],
     ]
   },
   tageszeit: {
@@ -34,12 +34,12 @@ const examplesData = {
     title: 'Umgangssprache',
     desc: 'Wandle zwischen Uhrzeit und Alltagssprache um – in beide Richtungen.',
     rows: [
-      ['3:00 PM', 'drei Uhr'],
-      ['3:15 PM', 'viertel nach drei'],
-      ['3:30 PM', 'halb vier'],
-      ['3:45 PM', 'viertel vor vier'],
-      ['3:10 PM', 'zehn nach drei'],
-      ['3:50 PM', 'zehn vor vier'],
+      ['3:00 nachmittags', 'drei Uhr'],
+      ['3:15 nachmittags', 'viertel nach drei'],
+      ['3:30 nachmittags', 'halb vier'],
+      ['3:45 nachmittags', 'viertel vor vier'],
+      ['3:10 nachmittags', 'zehn nach drei'],
+      ['3:50 nachmittags', 'zehn vor vier'],
     ]
   }
 };
@@ -153,6 +153,13 @@ function formatAMPM(h, m) {
 
 function format24h(h, m) {
   return `${h}:${m.toString().padStart(2, '0')}`;
+}
+
+function format12hTageszeit(h, m) {
+  const h12 = h % 12 || 12;
+  const mStr = m.toString().padStart(2, '0');
+  const tz = getTageszeit(h);
+  return `${h12}:${mStr} ${tz}`;
 }
 
 function getTageszeit(h) {
@@ -470,7 +477,7 @@ function updatePrompt() {
   const prompt = document.getElementById('prompt');
 
   if (mode === '24h') {
-    prompt.textContent = reverse ? format24h(hour, minute) : formatAMPM(hour, minute);
+    prompt.textContent = reverse ? format24h(hour, minute) : format12hTageszeit(hour, minute);
   } else if (mode === 'tageszeit') {
     prompt.textContent = format24h(hour, minute);
   } else {
@@ -479,7 +486,7 @@ function updatePrompt() {
       const text = answers.length > 0 ? answers[0] : '';
       prompt.textContent = text.charAt(0).toUpperCase() + text.slice(1);
     } else {
-      prompt.textContent = formatAMPM(hour, minute);
+      prompt.textContent = format12hTageszeit(hour, minute);
     }
   }
 }
@@ -616,9 +623,14 @@ function showExamples() {
   document.getElementById('examples-desc').textContent = data.desc;
 
   const table = document.getElementById('examples-table');
-  table.innerHTML = data.rows.map(([from, to]) =>
-    `<tr><td>${from}</td><td class="arrow">&rarr;</td><td>${to}</td></tr>`
-  ).join('');
+  const arrow = (state.mode === '24h' || state.mode === 'umgangssprache') ? '⟷' : '⟶';
+  table.innerHTML = data.rows.map(([from, to]) => {
+    const parts = from.match(/^([\d:]+)\s*(.*)$/);
+    if (parts && parts[2]) {
+      return `<tr><td class="ex-time">${parts[1]}</td><td class="ex-label">${parts[2]}</td><td class="arrow">${arrow}</td><td class="ex-right">${to}</td></tr>`;
+    }
+    return `<tr><td colspan="2">${from}</td><td class="arrow">${arrow}</td><td class="ex-right">${to}</td></tr>`;
+  }).join('');
 
   state.showingExamples = true;
   document.getElementById('examples').classList.remove('hidden');
@@ -666,7 +678,7 @@ document.getElementById('mode-tabs').addEventListener('click', (e) => {
 
 loadScore();
 updateScore();
-setMode('24h');
+setMode('tageszeit');
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js');
