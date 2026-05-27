@@ -55,7 +55,7 @@ const pickerConfigs = {
   },
   tageszeit: {
     wheels: [
-      { items: ['nachts','morgens','vormittags','mittags','nachmittags','abends'].map(t => ({ label: t, value: t })) }
+      { items: ['morgens','vormittags','mittags','nachmittags','abends','nachts'].map(t => ({ label: t, value: t })) }
     ],
     getAnswer(values) { return values[0]; }
   },

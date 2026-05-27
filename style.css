@@ -164,10 +164,10 @@ main {
   align-items: center;
   justify-content: center;
   font-size: 1rem;
-  color: #5a6a7a;
+  font-weight: 400;
+  color: var(--text-light);
   padding: 0 12px;
   white-space: nowrap;
-  transition: color 0.15s, font-size 0.15s;
 }
 
 .picker-item.selected {
@@ -182,33 +182,15 @@ main {
   left: 0;
   right: 0;
   height: 38px;
-  border-top: 2px solid var(--primary-light);
-  border-bottom: 2px solid var(--primary-light);
+  background: rgba(41, 128, 185, 0.08);
+  border-radius: 8px;
   pointer-events: none;
   z-index: 1;
 }
 
 .picker-wheel::before,
 .picker-wheel::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 50px;
-  pointer-events: none;
-  z-index: 2;
-}
-
-.picker-wheel::before {
-  top: 0;
-  height: 38px;
-  background: linear-gradient(to bottom, var(--card), transparent);
-}
-
-.picker-wheel::after {
-  bottom: 0;
-  height: 38px;
-  background: linear-gradient(to top, var(--card), transparent);
+  display: none;
 }
 
 .picker-separator {
