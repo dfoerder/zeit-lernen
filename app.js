@@ -113,29 +113,65 @@ const state = {
   correct: 0,
   total: 0,
   streak: 0,
+  bestStreak: 0,
   answered: false,
   showingExamples: true,
+  showingStats: false,
   questionCount: 0,
   useTyping: false,
   reverse: false,
-  wheels: []
+  wheels: [],
+  sessionActive: false
 };
 
-function loadScore() {
+// --- Stats Storage ---
+
+function loadAllStats() {
   try {
-    const saved = JSON.parse(localStorage.getItem('zeit-score'));
-    if (saved) {
-      state.correct = saved.correct || 0;
-      state.total = saved.total || 0;
-    }
-  } catch {}
+    return JSON.parse(localStorage.getItem('zeit-stats')) || {};
+  } catch { return {}; }
 }
 
-function saveScore() {
-  localStorage.setItem('zeit-score', JSON.stringify({
+function saveAllStats(stats) {
+  localStorage.setItem('zeit-stats', JSON.stringify(stats));
+}
+
+function getModeSessions(mode) {
+  const stats = loadAllStats();
+  return (stats[mode] && stats[mode].sessions) || [];
+}
+
+function saveSession() {
+  if (!state.sessionActive || state.total === 0) return;
+  const session = {
+    date: new Date().toISOString(),
+    total: state.total,
     correct: state.correct,
-    total: state.total
-  }));
+    rate: Math.round((state.correct / state.total) * 100),
+    bestStreak: state.bestStreak
+  };
+  const stats = loadAllStats();
+  if (!stats[state.mode]) stats[state.mode] = { sessions: [] };
+  stats[state.mode].sessions.push(session);
+  saveAllStats(stats);
+  state.sessionActive = false;
+}
+
+function startSession() {
+  state.correct = 0;
+  state.total = 0;
+  state.streak = 0;
+  state.bestStreak = 0;
+  state.questionCount = 0;
+  state.sessionActive = true;
+}
+
+function clearModeStats(mode) {
+  const stats = loadAllStats();
+  if (stats[mode]) {
+    stats[mode].sessions = [];
+    saveAllStats(stats);
+  }
 }
 
 function randomTime() {
@@ -596,6 +632,7 @@ function handleCheck() {
   if (isCorrect) {
     state.correct++;
     state.streak++;
+    if (state.streak > state.bestStreak) state.bestStreak = state.streak;
   } else {
     state.streak = 0;
   }
@@ -603,7 +640,6 @@ function handleCheck() {
   state.answered = true;
   showFeedback(isCorrect);
   updateScore();
-  saveScore();
 
   btn.textContent = 'Weiter';
   document.getElementById('skip-btn').classList.add('hidden');
@@ -618,6 +654,9 @@ function handleSkip() {
 // --- Examples & Modes ---
 
 function showExamples() {
+  saveSession();
+  state.showingExamples = true;
+  state.showingStats = false;
   const data = examplesData[state.mode];
   document.getElementById('examples-title').textContent = data.title;
   document.getElementById('examples-desc').textContent = data.desc;
@@ -632,19 +671,24 @@ function showExamples() {
     return `<tr><td colspan="2">${from}</td><td class="arrow">${arrow}</td><td class="ex-right">${to}</td></tr>`;
   }).join('');
 
-  state.showingExamples = true;
   document.getElementById('examples').classList.remove('hidden');
   document.getElementById('training').classList.add('hidden');
+  document.getElementById('stats').classList.add('hidden');
 }
 
 function startTraining() {
   state.showingExamples = false;
+  state.showingStats = false;
+  startSession();
+  updateScore();
   document.getElementById('examples').classList.add('hidden');
+  document.getElementById('stats').classList.add('hidden');
   document.getElementById('training').classList.remove('hidden');
   nextRound();
 }
 
 function setMode(mode) {
+  saveSession();
   state.mode = mode;
   state.questionCount = 0;
   document.querySelectorAll('.tab').forEach(t => {
@@ -659,12 +703,105 @@ function setMode(mode) {
   showExamples();
 }
 
+// --- Stats View ---
+
+const modeNames = {
+  'tageszeit': 'Tageszeit',
+  '24h': '24h-Format',
+  'umgangssprache': 'Umgangssprache'
+};
+
+function formatDate(isoStr) {
+  const d = new Date(isoStr);
+  return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) +
+    ', ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+}
+
+function showStats() {
+  saveSession();
+  state.showingStats = true;
+  state.showingExamples = false;
+
+  const mode = state.mode;
+  const sessions = getModeSessions(mode);
+
+  document.getElementById('stats-title').textContent = `Statistik: ${modeNames[mode]}`;
+
+  // Summary
+  const summaryEl = document.getElementById('stats-summary');
+  if (sessions.length === 0) {
+    summaryEl.innerHTML = '<p class="stats-empty">Noch keine Übungen abgeschlossen.</p>';
+  } else {
+    const totalQ = sessions.reduce((s, e) => s + e.total, 0);
+    const totalC = sessions.reduce((s, e) => s + e.correct, 0);
+    const avgRate = Math.round((totalC / totalQ) * 100);
+    const best = Math.max(...sessions.map(s => s.bestStreak));
+    const last5 = sessions.slice(-5);
+    const last5Rate = last5.length > 0
+      ? Math.round((last5.reduce((s, e) => s + e.correct, 0) / last5.reduce((s, e) => s + e.total, 0)) * 100)
+      : 0;
+
+    summaryEl.innerHTML = `
+      <div class="stats-rate">${avgRate}%</div>
+      <div class="stats-rate-bar"><div class="stats-rate-fill" style="width:${avgRate}%"></div></div>
+      <div class="stats-grid">
+        <div class="stats-cell"><div class="stats-value">${sessions.length}</div><div class="stats-label">Sessions</div></div>
+        <div class="stats-cell"><div class="stats-value">${totalQ}</div><div class="stats-label">Aufgaben</div></div>
+        <div class="stats-cell"><div class="stats-value">${totalC}</div><div class="stats-label">Richtig</div></div>
+        <div class="stats-cell"><div class="stats-value">${best}</div><div class="stats-label">Beste Serie</div></div>
+      </div>
+      <div class="stats-trend">Letzte 5 Sessions: <strong>${last5Rate}%</strong></div>
+    `;
+  }
+
+  // History list
+  const historyEl = document.getElementById('stats-history');
+  if (sessions.length === 0) {
+    historyEl.innerHTML = '';
+  } else {
+    const rows = [...sessions].reverse().map(s =>
+      `<tr>
+        <td>${formatDate(s.date)}</td>
+        <td>${s.correct}/${s.total}</td>
+        <td><strong>${s.rate}%</strong></td>
+      </tr>`
+    ).join('');
+    historyEl.innerHTML = `
+      <h3>Verlauf</h3>
+      <table class="stats-table">
+        <thead><tr><th>Datum</th><th>Ergebnis</th><th>Quote</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+  }
+
+  document.getElementById('examples').classList.add('hidden');
+  document.getElementById('training').classList.add('hidden');
+  document.getElementById('stats').classList.remove('hidden');
+}
+
+function hideStats() {
+  state.showingStats = false;
+  document.getElementById('stats').classList.add('hidden');
+  showExamples();
+}
+
+function handleClearStats() {
+  if (confirm(`Statistik für „${modeNames[state.mode]}" wirklich löschen?`)) {
+    clearModeStats(state.mode);
+    showStats();
+  }
+}
+
 // --- Events ---
 
 document.getElementById('check-btn').addEventListener('click', handleCheck);
 document.getElementById('skip-btn').addEventListener('click', handleSkip);
 document.getElementById('start-btn').addEventListener('click', startTraining);
 document.getElementById('examples-btn').addEventListener('click', showExamples);
+document.getElementById('stats-btn').addEventListener('click', showStats);
+document.getElementById('stats-back-btn').addEventListener('click', hideStats);
+document.getElementById('stats-clear-btn').addEventListener('click', handleClearStats);
 
 document.getElementById('answer').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') handleCheck();
@@ -676,7 +813,6 @@ document.getElementById('mode-tabs').addEventListener('click', (e) => {
   }
 });
 
-loadScore();
 updateScore();
 setMode('tageszeit');
 
