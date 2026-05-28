@@ -106,6 +106,8 @@ const reversePickerConfigs = {
   }
 };
 
+const ROUND_SIZE = 10;
+
 const state = {
   mode: '24h',
   hour: 0,
@@ -118,10 +120,14 @@ const state = {
   showingExamples: true,
   showingStats: false,
   questionCount: 0,
+  roundIndex: 0,
   useTyping: false,
   reverse: false,
   wheels: [],
-  sessionActive: false
+  sessionActive: false,
+  mistakes: [],
+  roundQuestions: [],
+  isRepeatRound: false
 };
 
 // --- Stats Storage ---
@@ -163,6 +169,10 @@ function startSession() {
   state.streak = 0;
   state.bestStreak = 0;
   state.questionCount = 0;
+  state.roundIndex = 0;
+  state.mistakes = [];
+  state.roundQuestions = [];
+  state.isRepeatRound = false;
   state.sessionActive = true;
 }
 
@@ -554,14 +564,32 @@ function showFeedback(isCorrect) {
 }
 
 function nextRound() {
-  state.questionCount++;
-  state.reverse = (state.mode !== 'tageszeit') && Math.random() < 0.5;
-  state.useTyping = state.questionCount % 20 === 0;
-
-  let { hour, minute } = randomTime();
-  if (state.mode === 'umgangssprache' && !state.useTyping && !state.reverse && minute === 0) {
-    minute = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55][Math.floor(Math.random() * 11)];
+  // Check if round of 10 is complete
+  if (state.roundIndex >= state.roundQuestions.length && state.roundQuestions.length > 0) {
+    showRoundResult();
+    return;
   }
+
+  state.questionCount++;
+  let hour, minute, reverse;
+
+  if (state.isRepeatRound && state.roundIndex < state.roundQuestions.length) {
+    // Repeat a mistake
+    const q = state.roundQuestions[state.roundIndex];
+    hour = q.hour;
+    minute = q.minute;
+    reverse = q.reverse;
+  } else {
+    // New random question
+    reverse = (state.mode !== 'tageszeit') && Math.random() < 0.5;
+    ({ hour, minute } = randomTime());
+    if (state.mode === 'umgangssprache' && !reverse && minute === 0) {
+      minute = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55][Math.floor(Math.random() * 11)];
+    }
+  }
+
+  state.reverse = reverse;
+  state.useTyping = state.questionCount % 20 === 0;
   state.hour = hour;
   state.minute = minute;
   state.answered = false;
@@ -615,7 +643,11 @@ function handleCheck() {
   const btn = document.getElementById('check-btn');
 
   if (state.answered) {
-    nextRound();
+    if (state.roundIndex >= state.roundQuestions.length) {
+      showRoundResult();
+    } else {
+      nextRound();
+    }
     return;
   }
 
@@ -629,17 +661,20 @@ function handleCheck() {
 
   const isCorrect = checkAnswer(value);
   state.total++;
+  state.roundIndex++;
   if (isCorrect) {
     state.correct++;
     state.streak++;
     if (state.streak > state.bestStreak) state.bestStreak = state.streak;
   } else {
     state.streak = 0;
+    state.mistakes.push({ hour: state.hour, minute: state.minute, reverse: state.reverse });
   }
 
   state.answered = true;
   showFeedback(isCorrect);
   updateScore();
+  updateRoundProgress();
 
   btn.textContent = 'Weiter';
   document.getElementById('skip-btn').classList.add('hidden');
@@ -674,17 +709,137 @@ function showExamples() {
   document.getElementById('examples').classList.remove('hidden');
   document.getElementById('training').classList.add('hidden');
   document.getElementById('stats').classList.add('hidden');
+  document.getElementById('round-result').classList.add('hidden');
 }
 
 function startTraining() {
   state.showingExamples = false;
   state.showingStats = false;
   startSession();
+  startNewRound();
   updateScore();
+  updateRoundProgress();
   document.getElementById('examples').classList.add('hidden');
   document.getElementById('stats').classList.add('hidden');
+  document.getElementById('round-result').classList.add('hidden');
   document.getElementById('training').classList.remove('hidden');
   nextRound();
+}
+
+function startNewRound() {
+  state.roundIndex = 0;
+  state.mistakes = [];
+  state.roundQuestions = new Array(ROUND_SIZE);
+  state.isRepeatRound = false;
+}
+
+function startRepeatRound() {
+  state.roundQuestions = [...state.mistakes];
+  state.roundIndex = 0;
+  state.mistakes = [];
+  state.isRepeatRound = true;
+  document.getElementById('round-result').classList.add('hidden');
+  document.getElementById('training').classList.remove('hidden');
+  updateRoundProgress();
+  nextRound();
+}
+
+function continueTraining() {
+  startNewRound();
+  document.getElementById('round-result').classList.add('hidden');
+  document.getElementById('training').classList.remove('hidden');
+  updateRoundProgress();
+  nextRound();
+}
+
+function updateRoundProgress() {
+  const total = state.roundQuestions.length;
+  const el = document.getElementById('round-progress');
+  el.textContent = `Frage ${Math.min(state.roundIndex + 1, total)} / ${total}`;
+}
+
+function getPromptText(hour, minute, mode, reverse) {
+  if (mode === '24h') {
+    return reverse ? format24h(hour, minute) : format12hTageszeit(hour, minute);
+  }
+  if (mode === 'tageszeit') {
+    return format24h(hour, minute);
+  }
+  if (reverse) {
+    const answers = getColloquialAnswers(hour, minute);
+    const text = answers.length > 0 ? answers[0] : '';
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+  return format12hTageszeit(hour, minute);
+}
+
+function getCorrectDisplayForMistake(m) {
+  const oldHour = state.hour;
+  const oldMinute = state.minute;
+  const oldReverse = state.reverse;
+  const oldMode = state.mode;
+
+  state.hour = m.hour;
+  state.minute = m.minute;
+  state.reverse = m.reverse;
+  const display = getDisplayAnswers();
+
+  state.hour = oldHour;
+  state.minute = oldMinute;
+  state.reverse = oldReverse;
+
+  return display;
+}
+
+function showRoundResult() {
+  saveSession();
+  const roundTotal = state.roundQuestions.length;
+  const roundCorrect = roundTotal - state.mistakes.length;
+  const rate = Math.round((roundCorrect / roundTotal) * 100);
+
+  document.getElementById('round-result-title').textContent =
+    state.isRepeatRound ? 'Wiederholung abgeschlossen' : 'Runde abgeschlossen';
+
+  document.getElementById('round-result-rate').innerHTML =
+    `<div class="result-rate">${rate}%</div>
+     <div class="result-detail">${roundCorrect} von ${roundTotal} richtig</div>`;
+
+  // Show mistakes
+  const mistakesEl = document.getElementById('round-result-mistakes');
+  if (state.mistakes.length > 0) {
+    const rows = state.mistakes.map(m => {
+      const prompt = getPromptText(m.hour, m.minute, state.mode, m.reverse);
+      const oldState = { hour: state.hour, minute: state.minute, reverse: state.reverse };
+      state.hour = m.hour; state.minute = m.minute; state.reverse = m.reverse;
+      const answers = getDisplayAnswers();
+      state.hour = oldState.hour; state.minute = oldState.minute; state.reverse = oldState.reverse;
+      return `<tr><td>${prompt}</td><td>${answers[0]}</td></tr>`;
+    }).join('');
+    mistakesEl.innerHTML = `
+      <h3>Fehler</h3>
+      <table class="mistakes-table">
+        <thead><tr><th>Aufgabe</th><th>Richtige Antwort</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  } else {
+    mistakesEl.innerHTML = '<p class="all-correct">Alles richtig! 🎉</p>';
+  }
+
+  // Actions
+  const actionsEl = document.getElementById('round-result-actions');
+  if (state.mistakes.length > 0) {
+    actionsEl.innerHTML = `
+      <button id="repeat-btn">Fehler wiederholen (${state.mistakes.length})</button>
+      <button id="continue-btn" class="secondary-btn">Weiter üben</button>`;
+    document.getElementById('repeat-btn').addEventListener('click', startRepeatRound);
+    document.getElementById('continue-btn').addEventListener('click', continueTraining);
+  } else {
+    actionsEl.innerHTML = '<button id="continue-btn">Weiter üben</button>';
+    document.getElementById('continue-btn').addEventListener('click', continueTraining);
+  }
+
+  document.getElementById('training').classList.add('hidden');
+  document.getElementById('round-result').classList.remove('hidden');
 }
 
 function setMode(mode) {
@@ -777,6 +932,7 @@ function showStats() {
 
   document.getElementById('examples').classList.add('hidden');
   document.getElementById('training').classList.add('hidden');
+  document.getElementById('round-result').classList.add('hidden');
   document.getElementById('stats').classList.remove('hidden');
 }
 

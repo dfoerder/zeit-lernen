@@ -401,6 +401,130 @@ main {
   color: var(--primary);
 }
 
+/* Round Result */
+#round-result {
+  text-align: center;
+}
+
+#round-result h2 {
+  font-size: 1.2rem;
+  color: var(--primary);
+  margin-bottom: 12px;
+}
+
+.result-rate {
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.result-detail {
+  font-size: 0.95rem;
+  color: var(--text-light);
+  margin-bottom: 16px;
+}
+
+.all-correct {
+  font-size: 1.1rem;
+  color: var(--success);
+  font-weight: 600;
+  padding: 16px 0;
+}
+
+.mistakes-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.mistakes-table th {
+  color: var(--text-light);
+  font-weight: 600;
+  padding: 6px 8px;
+  border-bottom: 2px solid #e8edf2;
+}
+
+.mistakes-table td {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+  color: var(--text);
+}
+
+#round-result-mistakes h3 {
+  font-size: 1rem;
+  color: var(--text);
+  margin-bottom: 8px;
+  text-align: left;
+}
+
+#round-result-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+#round-result-actions button {
+  padding: 14px 24px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  min-height: 48px;
+}
+
+#round-result-actions button:hover {
+  background: var(--primary-light);
+}
+
+#round-result-actions .secondary-btn {
+  background: none;
+  border: 1px solid #dce1e6;
+  color: var(--text-light);
+  font-weight: 500;
+}
+
+#round-result-actions .secondary-btn:hover {
+  border-color: var(--primary-light);
+  color: var(--primary-light);
+  background: none;
+}
+
+#round-result-nav {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding-top: 12px;
+  border-top: 1px solid #eee;
+}
+
+#round-result-nav button {
+  background: none;
+  border: 1px solid #dce1e6;
+  color: var(--text-light);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+#round-result-nav button:hover {
+  border-color: var(--primary-light);
+  color: var(--primary-light);
+}
+
+#round-progress {
+  font-size: 0.85rem;
+  color: var(--text-light);
+}
+
 /* Stats */
 #stats {
   text-align: center;
