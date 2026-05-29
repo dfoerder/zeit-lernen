@@ -92,7 +92,7 @@ const reversePickerConfigs = {
       { items: Array.from({length: 12}, (_, i) => ({ label: String(i+1), value: String(i+1) })) },
       { separator: ':' },
       { items: minuteItems },
-      { items: [{ label: 'AM', value: 'AM' }, { label: 'PM', value: 'PM' }] }
+      { items: ['morgens','vormittags','mittags','nachmittags','abends','nachts'].map(t => ({ label: t, value: t })) }
     ],
     getAnswer(values) { return `${values[0]}:${values[1]} ${values[2]}`; }
   },
@@ -189,12 +189,6 @@ function randomTime() {
   const steps = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
   const minute = steps[Math.floor(Math.random() * steps.length)];
   return { hour, minute };
-}
-
-function formatAMPM(h, m) {
-  const period = h >= 12 ? 'PM' : 'AM';
-  const h12 = h % 12 || 12;
-  return `${h12}:${m.toString().padStart(2, '0')} ${period}`;
 }
 
 function format24h(h, m) {
@@ -301,17 +295,25 @@ function getTageszeitAnswers(h) {
   return answers;
 }
 
-function getAMPMAnswers(h, m) {
+function getTageszeit12hAnswers(h, m) {
   const answers = [];
-  const period = h >= 12 ? 'pm' : 'am';
   const h12 = h % 12 || 12;
   const mStr = m.toString().padStart(2, '0');
 
-  answers.push(`${h12}:${mStr} ${period}`);
-  answers.push(`${h12}.${mStr} ${period}`);
-  if (m === 0) {
-    answers.push(`${h12} ${period}`);
-    answers.push(`${h12}:00 ${period}`);
+  const tageszeiten = [getTageszeit(h)];
+  if (h === 4) tageszeiten.push('morgens');
+  if (h === 9) tageszeiten.push('vormittags');
+  if (h === 13) tageszeiten.push('nachmittags');
+  if (h === 17) tageszeiten.push('abends');
+  if (h === 21) tageszeiten.push('nachts');
+
+  for (const tz of tageszeiten) {
+    answers.push(`${h12}:${mStr} ${tz}`);
+    answers.push(`${h12}.${mStr} ${tz}`);
+    if (m === 0) {
+      answers.push(`${h12} ${tz}`);
+      answers.push(`${h12}:00 ${tz}`);
+    }
   }
   return answers;
 }
@@ -332,7 +334,7 @@ function get12hAnswers(h, m) {
 
 function getValidAnswers() {
   const { hour, minute, mode, reverse } = state;
-  if (mode === '24h') return reverse ? getAMPMAnswers(hour, minute) : get24hAnswers(hour, minute);
+  if (mode === '24h') return reverse ? getTageszeit12hAnswers(hour, minute) : get24hAnswers(hour, minute);
   if (mode === 'tageszeit') return getTageszeitAnswers(hour);
   return reverse ? get12hAnswers(hour, minute) : getColloquialAnswers(hour, minute);
 }
@@ -341,7 +343,7 @@ function getDisplayAnswers() {
   const { hour, minute, mode, reverse } = state;
   if (mode === '24h') {
     if (reverse) {
-      return [formatAMPM(hour, minute)];
+      return [format12hTageszeit(hour, minute)];
     }
     const mStr = minute.toString().padStart(2, '0');
     return [`${hour}:${mStr}`, `${hour} Uhr ${mStr}`];
@@ -608,7 +610,7 @@ function nextRound() {
   // Placeholder je nach Richtung anpassen
   const input = document.getElementById('answer');
   if (state.reverse) {
-    input.placeholder = state.mode === '24h' ? '3:00 PM' : '3:30';
+    input.placeholder = state.mode === '24h' ? '3:00 nachmittags' : '3:30';
   } else {
     if (state.mode === '24h') input.placeholder = '16:30';
     else if (state.mode === 'tageszeit') input.placeholder = 'nachmittags';
