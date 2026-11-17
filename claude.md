@@ -158,3 +158,8 @@ npx serve . -l 8090
 - Service Worker Cache-Version muss bei Änderungen manuell in `sw.js` hochgezählt werden (aktuell: v2 auf dev, v3 auf stats)
 - `getDisplayAnswers()` im Umgangssprache-Modus filtert Duplikate über Index-Modulo (jeder zweite Eintrag ist Zahl statt Wort)
 - `getTageszeitAnswers()` akzeptiert an Grenzstunden auch die benachbarte Tageszeit (z.B. 4:00 → "nachts" UND "morgens")
+
+## Bug-Melder
+
+`bugs.js` (gleiche Datei wie in den anderen Apps): Einschalten mit `?bugs=1` oder fünfmal auf den Titel
+(`h1[data-bug-tap]`) tippen; 🐞 unten rechts meldet Fehler/Wünsche als vorausgefülltes GitHub-Issue.

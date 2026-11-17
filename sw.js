@@ -1,10 +1,11 @@
-const CACHE_NAME = 'zeit-lernen-v3';
+const CACHE_NAME = 'zeit-lernen-v4';
 const ASSETS = [
   './',
   './index.html',
   './style.css',
   './app.js',
-  './manifest.json'
+  './manifest.json',
+  './bugs.js'
 ];
 
 self.addEventListener('install', (e) => {
